@@ -1,0 +1,19 @@
+---
+description: SQUADLY project and Karpathy-inspired engineering guidance
+alwaysApply: true
+---
+
+# SQUADLY Engineering Rules
+
+- Think before coding: state assumptions and ask about ambiguous product or data decisions.
+- Prefer the smallest implementation that satisfies the request.
+- Make surgical changes and preserve unrelated user work.
+- Define executable success criteria and run focused validation after edits.
+- Preserve the React + TypeScript + Vite frontend and CommonJS Node.js + Express backend.
+- Use parameterized SQLite queries and additive migrations for existing databases.
+- Keep national IDs private; never return full identifiers.
+- Use existing response helpers in `backend/src/utils/response.js`.
+- Validate frontend changes with `npm.cmd run build` in `frontend/`.
+- Validate changed backend files with `node --check` and test `/health` when runtime behavior changes.
+- Match the SQUADLY logo palette: deep navy, arena green, mint, white, and restrained warm accents.
+- Do not replace the product with a standalone vanilla HTML landing page.
