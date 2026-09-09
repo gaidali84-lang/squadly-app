@@ -5,6 +5,7 @@ const { body, validationResult } = require('express-validator');
 const db = require('../db/schema');
 const { requireAuth } = require('../utils/auth');
 const { ok, fail, serverError } = require('../utils/response');
+const { getPaymentProvider } = require('../payments');
 
 // GET /api/v1/wallet — balance + recent transactions
 router.get('/', requireAuth, (req, res) => {
@@ -23,11 +24,11 @@ router.get('/', requireAuth, (req, res) => {
   }
 });
 
-// POST /api/v1/wallet/topup — add funds (mock payment)
+// POST /api/v1/wallet/topup — add funds via a payment provider (mock by default)
 router.post('/topup', requireAuth, [
   body('amount').isFloat({ min: 1 }),
   body('method').optional().isIn(['card', 'apple_pay', 'mada', 'paypal']),
-], (req, res) => {
+], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return fail(res, errors.array()[0].msg);
 
@@ -37,16 +38,28 @@ router.post('/topup', requireAuth, [
     const wallet = db.get('SELECT * FROM wallets WHERE user_id = ?', [req.user.id]);
     if (!wallet) return fail(res, 'No wallet', 404);
 
+    // Authorize & capture with the configured payment provider. Only credits
+    // the wallet after the gateway confirms the charge.
+    const payment = await getPaymentProvider().charge({
+      amount,
+      currency: 'sar',
+      method,
+      description: 'SQUADLY wallet top-up',
+      metadata: { user_id: req.user.id },
+    });
+    if (!payment.success) return fail(res, payment.error || 'Payment declined', 400);
+
     const newBalance = Math.round((wallet.balance + amount) * 100) / 100;
     db.run('UPDATE wallets SET balance = ?, updated_at = datetime(\'now\') WHERE id = ?', [newBalance, wallet.id]);
     db.run(
-      `INSERT INTO transactions (wallet_id, type, amount, balance_after, description)
-       VALUES (?, 'topup', ?, ?, ?)`,
-      [wallet.id, amount, newBalance, `Top up via ${method}`]
+      `INSERT INTO transactions (wallet_id, type, amount, balance_after, description, reference_type, reference_id)
+       VALUES (?, 'topup', ?, ?, ?, 'payment', ?)`,
+      [wallet.id, amount, newBalance, `Top up via ${method}`, payment.providerRef]
     );
 
-    return ok(res, { balance: newBalance, amount });
+    return ok(res, { balance: newBalance, amount, provider_ref: payment.providerRef });
   } catch (err) {
+    console.error('[WALLET:TOPUP]', err.message);
     return serverError(res);
   }
 });

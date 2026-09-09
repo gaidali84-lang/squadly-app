@@ -49,11 +49,23 @@ Set these (see `.env.example`):
 | `JWT_SECRET` | **Required** — signing secret, long random value               |
 | `FRONTEND_URL` | CORS allowed origin (only matters when the SPA is served elsewhere) |
 
-## Notes / production integration points
+## Payments (production integration point)
 
-- **Payments are mock adapters.** The wallet topup/pay endpoints accept any
-  `payment_method` (e.g. `mada`, `wallet`) without a real gateway. Wire real
-  Mada/Apple Pay before taking real money.
+Wallet top-ups go through a **payment provider adapter**
+(`backend/src/payments/`):
+
+- **`mock`** (default, dev) — always succeeds, never takes money.
+- **`stripe`** — live charges via PaymentIntent (supports card / Apple Pay /
+  Mada). Enable with `PAYMENT_PROVIDER=stripe` + `STRIPE_SECRET_KEY`, then
+  install the SDK inside the container: `npm i stripe` (it's lazily required,
+  so the mock path doesn't need it).
+
+Adapters expose the same `charge({ amount, currency, method, description, metadata })`
+interface, so the wallet route is unchanged whether mock or live. The gateway
+reference is recorded on the wallet transaction (`reference_id`).
+
+> The wallet `pay` (escrow) step is internal — it moves funds already in the
+> wallet, so it doesn't hit an external gateway. Only `topup` touches one.
 - **Single-node SQLite** is fine for a small footprint but is not horizontally
   scalable. Move to Postgres if you need concurrent writes at scale.
 - Add a reverse proxy (nginx/Caddy) for TLS if you expose it directly to the
