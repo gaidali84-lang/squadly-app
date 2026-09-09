@@ -7,10 +7,21 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { WebSocketServer } = require('ws');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { getDb } = require('./db/schema');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Serve the built frontend (frontend/dist) when present — production single-image
+// deploy. Skipped in dev/tests when the dist folder doesn't exist.
+const DIST_DIR = process.env.DIST_DIR || path.join(__dirname, '..', '..', 'frontend', 'dist');
+if (fs.existsSync(DIST_DIR)) {
+  app.use(express.static(DIST_DIR));
+  // SPA fallback: non-API routes return the app shell.
+  app.get(/^(?!\/api\/|\/ws).*/, (_req, res) => res.sendFile(path.join(DIST_DIR, 'index.html')));
+}
 
 // --- Middleware ---
 app.use(helmet({ contentSecurityPolicy: false }));

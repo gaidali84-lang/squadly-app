@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/*.db
+**/*.tsbuildinfo
+backend/data
+.git
+.github
+chats
+SQUADLY-Vision
+.env
